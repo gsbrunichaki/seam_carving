@@ -51,26 +51,34 @@ Img pic[3];
 // Imagem selecionada (0,1,2)
 int sel;
 
+// Largura desejada
+int largura;
+
 // Carrega uma imagem para a struct Img
 void load(char* name, Img* pic)
 {
     int chan;
+
     pic->img = (RGB*) SOIL_load_image(name, &pic->width, &pic->height, &chan, SOIL_LOAD_RGB);
-    if(!pic->img)
+
+    if (!pic->img)
     {
         printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
         exit(1);
     }
+
     printf("Load: %d x %d x %d\n", pic->width, pic->height, chan);
 }
 
 int main(int argc, char** argv)
 {
-    if(argc < 2) {
-        printf("seamcarving [origem] [mascara]\n");
-        printf("Origem é a imagem original, mascara é a máscara desejada\n");
+    if (argc < 3)
+    {
+        printf("seamcarving [origem] [mascara] [largura]\n");
+        printf("Origem é a imagem original, mascara é a máscara desejada e largura é a largura desejada\n");
         exit(1);
     }
+
 	glutInit(&argc,argv);
 
 	// Define do modo de operacao da GLUT
@@ -84,10 +92,17 @@ int main(int argc, char** argv)
     load(argv[1], &pic[0]);
     load(argv[2], &pic[1]);
 
-    if(pic[0].width != pic[1].width || pic[0].height != pic[1].height) {
+    // Seta a largura desejada
+    largura = atoi(argv[3]);
+
+    if (pic[0].width != pic[1].width || pic[0].height != pic[1].height)
+    {
         printf("Imagem e máscara com dimensões diferentes!\n");
         exit(1);
     }
+
+    if (largura < (pic[0].width / 2))
+        printf("A largura desejada não pode ser menor que a metade da largura original");
 
     // A largura e altura da janela são calculadas de acordo com a maior
     // dimensão de cada imagem
@@ -129,6 +144,13 @@ int main(int argc, char** argv)
 	// Pinta a imagem resultante de preto!
 	memset(pic[2].img, 0, width*height*3);
 
+	for (int i = 0; i < pic[0].width * pic[0].height; i++)
+    {
+        pic[2].img[i].r = pic[0].img[i].r;
+        pic[2].img[i].g = pic[0].img[i].g;
+        pic[2].img[i].b = pic[0].img[i].b;
+    }
+
     // Cria textura para a imagem de saída
 	tex[2] = SOIL_create_OGL_texture((unsigned char*) pic[2].img, pic[2].width, pic[2].height, SOIL_LOAD_RGB, SOIL_CREATE_NEW_ID, 0);
 
@@ -155,29 +177,33 @@ int calcEnergy(int pxTop, int pxRig, int pxBot, int pxLef)
 // Gerencia eventos de teclado
 void keyboard(unsigned char key, int x, int y)
 {
-    if(key==27) {
+    if (key==27)
+    {
       // ESC: libera memória e finaliza
       free(pic[0].img);
       free(pic[1].img);
       free(pic[2].img);
       exit(1);
     }
-    if(key >= '1' && key <= '3')
+
+    if (key >= '1' && key <= '3')
         // 1-3: seleciona a imagem correspondente (origem, máscara e resultado)
         sel = key - '1';
-    if(key == 's') {
+
+    if (key == 's') {
         // Aplica o algoritmo e gera a saida em pic[2].img...
         // ...
         // ... (crie uma função para isso!)
 
         // Exemplo: pintando tudo de amarelo
-        for(int i=0; i<pic[2].height*pic[2].width; i++)
+        for(int i=0; i<(pic[2].height*pic[2].width)/2; i++)
             pic[2].img[i].r = pic[2].img[i].g = 255;
 
         // Chame uploadTexture a cada vez que mudar
         // a imagem (pic[2])
         uploadTexture();
     }
+
     glutPostRedisplay();
 }
 
