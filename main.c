@@ -39,6 +39,10 @@ void init();
 void draw();
 void keyboard(unsigned char key, int x, int y);
 
+// Funções criadas
+int calcEnergy(int pxTop, int pxRig, int pxBot, int pxLef);
+void removePixel(int line, int column);
+
 // Largura e altura da janela
 int width, height;
 
@@ -53,22 +57,6 @@ int sel;
 
 // Largura desejada
 int largura;
-
-// Carrega uma imagem para a struct Img
-void load(char* name, Img* pic)
-{
-    int chan;
-
-    pic->img = (RGB*) SOIL_load_image(name, &pic->width, &pic->height, &chan, SOIL_LOAD_RGB);
-
-    if (!pic->img)
-    {
-        printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
-        exit(1);
-    }
-
-    printf("Load: %d x %d x %d\n", pic->width, pic->height, chan);
-}
 
 int main(int argc, char** argv)
 {
@@ -158,20 +146,20 @@ int main(int argc, char** argv)
     glutMainLoop();
 }
 
-int calcEnergy(int pxTop, int pxRig, int pxBot, int pxLef)
+// Carrega uma imagem para a struct Img
+void load(char* name, Img* pic)
 {
-    int Rx = pic[0].img[pxRig].r - pic[0].img[pxLef].r;
-    int Gx = pic[0].img[pxRig].g - pic[0].img[pxLef].g;
-    int Bx = pic[0].img[pxRig].b - pic[0].img[pxLef].b;
+    int chan;
 
-    int Ry = pic[0].img[pxBot].r - pic[0].img[pxTop].r;
-    int Gy = pic[0].img[pxBot].g - pic[0].img[pxTop].g;
-    int By = pic[0].img[pxBot].b - pic[0].img[pxTop].b;
+    pic->img = (RGB*) SOIL_load_image(name, &pic->width, &pic->height, &chan, SOIL_LOAD_RGB);
 
-    int DLTx = pow(Rx, 2) + pow(Gx, 2) + pow(Bx, 2);
-    int DLTy = pow(Ry, 2) + pow(Gy, 2) + pow(By, 2);
+    if (!pic->img)
+    {
+        printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+        exit(1);
+    }
 
-    return(DLTx + DLTy);
+    printf("Load: %d x %d x %d\n", pic->width, pic->height, chan);
 }
 
 // Gerencia eventos de teclado
@@ -252,4 +240,109 @@ void draw()
 
     // Exibe a imagem
     glutSwapBuffers();
+}
+
+int calcEnergy(int pxTop, int pxRig, int pxBot, int pxLef)
+{
+    int Rx = pic[0].img[pxRig].r - pic[0].img[pxLef].r;
+    int Gx = pic[0].img[pxRig].g - pic[0].img[pxLef].g;
+    int Bx = pic[0].img[pxRig].b - pic[0].img[pxLef].b;
+
+    int Ry = pic[0].img[pxBot].r - pic[0].img[pxTop].r;
+    int Gy = pic[0].img[pxBot].g - pic[0].img[pxTop].g;
+    int By = pic[0].img[pxBot].b - pic[0].img[pxTop].b;
+
+    int DLTx = pow(Rx, 2) + pow(Gx, 2) + pow(Bx, 2);
+    int DLTy = pow(Ry, 2) + pow(Gy, 2) + pow(By, 2);
+
+    return(DLTx + DLTy);
+}
+
+void removePixel(int line, int column)
+{
+    int pxPos = (line * pic[2].width) + column;
+    int pxWid = (line + 1) * pic[2].width;
+
+    pic[2].img[pxPos].r = pic[2].img[pxPos].g = pic[2].img[pxPos].b = 0;
+
+    for (int i = pxPos; i < pxWid; i++)
+    {
+        pic[1].img[i].r = pic[2].img[i + 1].r;
+        pic[1].img[i].g = pic[2].img[i + 1].g;
+        pic[1].img[i].b = pic[2].img[i + 1].b;
+
+        pic[2].img[i].r = pic[2].img[i + 1].r;
+        pic[2].img[i].g = pic[2].img[i + 1].g;
+        pic[2].img[i].b = pic[2].img[i + 1].b;
+    }
+
+    pic[2].img[pxWid].r = pic[2].img[pxWid].g = pic[2].img[pxWid].b = 0;
+}
+
+unsigned long long int smallest(unsigned long long int x, unsigned long long int y, unsigned long long int z)
+{
+    if (x < y && x < z)
+        return x;
+
+    else if (y < x && y < z)
+        return y;
+
+    return z;
+}
+
+unsigned long long int smallest2(unsigned long long int x, unsigned long long int y)
+{
+    if (x < y)
+        return x;
+
+    return y;
+}
+
+void seam()
+{
+    unsigned long long int mtxEnergy[pic[2].width - 1][pic[2].height - 1];
+
+    int iTop = 0;
+    int iRig = 0;
+    int iBot = 0;
+    int iLef = 0;
+
+    for (int i = 0; i < (pic[2].width * pic[2].height); i++)
+    {
+        iTop = i - pic[2].width;
+        iBot = i + pic[2].width;
+
+        // Primeira linha e última linha
+        if (i < pic[2].width)
+            iTop = (pic[2].width * (pic[2].height - 1)) + i;
+        else if (i >= pic[2].width * (pic[2].height - 1))
+            iBot = i - pic[2].width * (pic[2].height - 1);
+
+        iLef = i - 1;
+        iRig = i + 1;
+
+        // Primeira coluna e última coluna
+        if (i % pic[2].width == 0)
+            iLef = i + pic[2].width - 1;
+        else if ((i + 1) % pic[2].width == 0)
+            iRig = (i - pic[2].width) + 1;
+
+        // Cálculo matriz de energia
+        int line = (i - 1) / pic[2].width;
+        int column = (i % pic[2].width);
+
+        mtxEnergy[line][column] = calcEnergy(iTop, iRig, iBot, iLef);
+    }
+
+    unsigned long long int imgLef;
+    unsigned long long int imgRig;
+    unsigned long long int imgCen;
+
+    // Percorre linhas
+    for (int i = 1; i < pic[2].height; i++)
+    {
+        imgCen = mtxEnergy[i - 1][0];
+        imgRig = mtxEnergy[i - 1][1];
+        mtxEnergy[i][0] = mtxEnergy[i][0] + smallest2(imgCen, imgRig);
+    }
 }
